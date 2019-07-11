@@ -1,4 +1,10 @@
+#BitTClient
+This is a client that uses the BitTorrent protocol.
 
+I am testing it on ubuntu downloads. 
+
+Currently the binary decoder works, so the torrent file is succesfully 
+converted to a python data structure.
 
 Citations:
 https://markuseliasson.se/article/bittorrent-in-python/
