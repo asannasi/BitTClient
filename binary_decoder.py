@@ -11,7 +11,9 @@ def binary_decoder(data: bytes):
         length = ''
         byte = data[i:i+1]
         while byte != b':':
-            length = length + chr(int.from_bytes(byte, byteorder="big"))
+            char = chr(int.from_bytes(byte, byteorder="big"))
+            assert(char in '0123456789')
+            length = length + char
             i += 1
             byte = data[i:i+1]
         length = int(length)
@@ -30,13 +32,16 @@ def binary_decoder(data: bytes):
     # Example data format: "i35e"
     # Returns the translated integer and the index the translation stopped at
     def _integer(data, i):
+        assert(data[i: i+1] == b'i')
         i += 1 #skip the starting "i"
 
         # Concatenates the ascii chars to form a int
         integer = ''
         byte = data[i:i+1]
         while byte != b'e':
-            integer = integer + chr(int.from_bytes(byte, byteorder="big"))
+            char = chr(int.from_bytes(byte, byteorder="big"))
+            assert(char in '0123456789')
+            integer = integer + char
             i += 1
             byte = data[i:i+1]
 
@@ -49,6 +54,7 @@ def binary_decoder(data: bytes):
     # Returns the translated list with its translated elements 
     # and the index the translation stopped at
     def _list(data, i):
+        assert(data[i: i+1] == b'l')
         i += 1 #skip "l"
 
         # Translates each element in the list until the list ends
@@ -78,6 +84,7 @@ def binary_decoder(data: bytes):
     # as well as the index the translation stopped at
     # The key is always a bytestring in a well-formed file
     def _dict(data, i):
+        assert(data[i: i+1] == b'd')
         i += 1 #skip 'd'
 
         vals = {}
