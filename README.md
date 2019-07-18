@@ -15,6 +15,9 @@ I want to also try out making the binary decoder use python decoraters.
 
 The binary decoder does not currently output binary strings.
 
+This project gave me experience with understanding the existing codebase
+since not everything is explained in the tutorial.
+
 Citations:
 https://markuseliasson.se/article/bittorrent-in-python/
 https://markuseliasson.se/article/introduction-to-asyncio/
