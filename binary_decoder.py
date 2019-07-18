@@ -120,7 +120,6 @@ def binary_decoder(data: bytes):
     }
 
     # Main part where the translation is begun
-    translations = []
     i = 0
     while i < len(data):
         byte = data[i : i+1]
@@ -128,5 +127,4 @@ def binary_decoder(data: bytes):
             translation, i = options[byte](data, i)
         else:
             translation, i = _bytestring(data, i)
-        translations.append(translation)
-    return translations
+    return translation
