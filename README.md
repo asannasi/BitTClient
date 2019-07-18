@@ -13,10 +13,11 @@ of parentheses parsers and html parsers.
 
 I want to also try out making the binary decoder use python decoraters.
 
-The binary decoder does not currently output binary strings.
-
 This project gave me experience with understanding the existing codebase
 since not everything is explained in the tutorial.
+
+The client can successfully get the list of peers from the tracker and then
+parse this list to find the peers' IP addresses and port numbers.
 
 Citations:
 https://markuseliasson.se/article/bittorrent-in-python/

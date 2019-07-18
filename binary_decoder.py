@@ -21,11 +21,12 @@ def binary_decoder(data: bytes):
         i += 1 # skip ':' to go to the encoded string
 
         # Concatenates "length" number of ascii chars
-        string = ''
+        string = b''
         for j in range(0, length):
-            string = string + chr(int.from_bytes(data[i:i+1], byteorder="big"))
+            #string = string + chr(int.from_bytes(data[i:i+1], byteorder="big"))
+            string += data[i:i+1]
             i += 1
-
+        #string = bytes(string, encoding = "utf-8")
         return string, i
 
     # This function is used to decode integers encoded as "i<integer in ascii>e"
