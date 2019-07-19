@@ -6,6 +6,12 @@ from socket import inet_ntoa # to get ip address from bytes
 from struct import unpack # to get port number from bytes
 from binary_decoder import binary_decoder # to decode binary file
 
+class TrackerInfo():
+    def __init__(self, info_hash, my_peer_id, peer_list):
+        self.info_hash = info_hash
+        self.my_peer_id = my_peer_id
+        self.peer_list = peer_list
+
 # This function finds the info data in bytes given in the torrent file and
 # hashes it
 def find_info_hash(meta_data:bytes) -> bytes:
@@ -15,16 +21,16 @@ def find_info_hash(meta_data:bytes) -> bytes:
     index = editable_data.index(info_string)
     # skip the 4:info part and just hash the dict, 
     # while making sure to not include the last 'e'
-    info = b''.join([editable_data[index+len(info_string):len(editable_data)-1]])
+    info=b''.join([editable_data[index+len(info_string):len(editable_data)-1]])
     info_hash = sha1(info).digest()
     return info_hash
 
-# This function generates a random peer id
+# This function generates a random peer id as a bytestring
 def make_peer_id() -> str:
-    peer_id = ['-PC0001-']
+    peer_id = [b'-PC0001-']
     for _ in range(12):
-        peer_id.append(str(randint(0,9)))
-    peer_id = ''.join(peer_id)
+        peer_id.append(bytes(str(randint(0,9)), encoding = 'utf-8'))
+    peer_id = b''.join(peer_id)
     return peer_id
 
 # This function connects to the tracker with the url given in the
@@ -103,4 +109,6 @@ async def ask_for_peers(torrent_file):
             response = await connect(torrent, params, True, client)
             # parse response to get peers
             decoded_response = binary_decoder(response)
-            return find_peers_addr(decoded_response)
+            peer_list = find_peers_addr(decoded_response)
+            resp = TrackerInfo(info_hash, peer_id, peer_list)
+            return resp
