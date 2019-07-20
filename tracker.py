@@ -6,7 +6,7 @@ from socket import inet_ntoa # to get ip address from bytes
 from struct import unpack # to get port number from bytes
 from binary_decoder import binary_decoder # to decode binary file
 
-class TrackerInfo():
+class ClientTrackerInfo():
     def __init__(self, info_hash, my_peer_id, peer_list):
         self.info_hash = info_hash
         self.my_peer_id = my_peer_id
@@ -110,5 +110,5 @@ async def ask_for_peers(torrent_file):
             # parse response to get peers
             decoded_response = binary_decoder(response)
             peer_list = find_peers_addr(decoded_response)
-            resp = TrackerInfo(info_hash, peer_id, peer_list)
+            resp = ClientTrackerInfo(info_hash, peer_id, peer_list)
             return resp
