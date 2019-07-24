@@ -4,13 +4,29 @@ from random import randint # for generating this client's peer id
 from urllib.parse import urlencode # for encoding params into a url
 from socket import inet_ntoa # to get ip address from bytes
 from struct import unpack # to get port number from bytes
+import math # to find out how many pieces there are 
+
 from binary_decoder import binary_decoder # to decode binary file
 
+
 class ClientTrackerInfo():
-    def __init__(self, info_hash, my_peer_id, peer_list):
+    def __init__(self, info_hash, my_peer_id, peer_list, torrent):
         self.info_hash = info_hash
         self.my_peer_id = my_peer_id
         self.peer_list = peer_list
+        self.piece_length = int(torrent[b'info'][b'piece length'])
+        self.length = int(torrent[b'info'][b'length'])
+        self.file_name = torrent[b'info'][b'name']
+
+        hashes = torrent[b'info'][b'pieces']
+        HASH_LENGTH = 20
+        self.piece_hashes = []
+        for i in range(0, len(hashes), HASH_LENGTH):
+            self.piece_hashes.append(hashes[i:i+HASH_LENGTH])
+
+
+        self.num_pieces = math.ceil(self.length/self.piece_length)
+        self.blocks_per_piece = math.ceil(self.piece_length/(2**14))
 
 # This function finds the info data in bytes given in the torrent file and
 # hashes it
@@ -110,5 +126,5 @@ async def ask_for_peers(torrent_file):
             # parse response to get peers
             decoded_response = binary_decoder(response)
             peer_list = find_peers_addr(decoded_response)
-            resp = ClientTrackerInfo(info_hash, peer_id, peer_list)
+            resp = ClientTrackerInfo(info_hash, peer_id, peer_list, torrent)
             return resp
