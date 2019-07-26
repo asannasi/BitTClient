@@ -7,6 +7,7 @@ import asyncio
 BLOCK_SIZE = 2**14
 JAM_TIMEOUT = 10
 
+# This class represents a piece of the file to be downloaded
 class Piece:
     def __init__(self, blocks_per_piece, hash):
         self.block_size = BLOCK_SIZE
@@ -15,19 +16,26 @@ class Piece:
         self.hash = hash
         self.peer = None
 
+    # set the peer that is allowed to write to this peer
     def set_peer(self, peer):
         self.peer = peer
 
+    # checks if this piece is complete or not
     def is_complete(self):
         return (len(self.data) <= self.max_length and 
             len(self.data) > (self.max_length-self.block_size))
 
+    # gets the offset where the piece data is at
     def get_offset(self):
         return len(self.data)
 
+    # writes the data at the piece's offset if the peer num
+    # is allowed to
     def write(self, offset, data, peer_num):
         if peer_num == self.peer:   
             self.data += bytearray(data)
+            
+            # check hash to see if piece is correct
             if self.is_complete():
                 if (sha1(self.data).digest() == self.hash):
                     pass
@@ -37,12 +45,12 @@ class Piece:
         else:
             print(peer_num, "tried to write to ", self.peer, "'s piece")
 
+# This class controls which pieces are downloaded by each peer connection
 class Downloader:
     def __init__(self, trk):
         # make a list of lists of blocks for pieces of the file
-        self.pieces = [Piece(trk.blocks_per_piece, trk.piece_hashes[i]) for i in range(trk.num_pieces)]
-        #self.pieces = [Piece(trk.blocks_per_piece, trk.piece_hashes[i]) for i in range(0,200)]
-        #self.untouched = list(range(0, 200))
+        self.pieces = [Piece(trk.blocks_per_piece, 
+            trk.piece_hashes[i]) for i in range(trk.num_pieces)]
         self.untouched = list(range(0, trk.num_pieces))
         self.pending = []
 
@@ -65,14 +73,13 @@ class Downloader:
                 return True
         if counter == len(self.pieces):
             return False
-        print("Error: could not ascertain downloading status")
         return True
 
     # This function allows a peer connection to tell the downloader
     # that it is ready to download. This function will return the 
     # piece index and offset the peer connection should request
     async def inform(self, peer_num, bitfield):
-        # There might be a jam
+        # There might be a jam, so reset pending pieces
         if self.is_downloading and len(self.untouched) == 0:
             await asyncio.sleep(JAM_TIMEOUT)
             if self.is_downloading and len(self.untouched) == 0:
@@ -124,7 +131,7 @@ class Downloader:
             if index in self.pending:
                 self.pending.remove(index)
             self.untouched.append(index)
-            self.pieces[index].peer = None
+            self.pieces[index].set_peer(None)
 
     # This function writes the downloaded data to the output file
     def write_to_disk(self):

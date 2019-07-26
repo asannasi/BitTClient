@@ -3,8 +3,7 @@ This is a client that uses the BitTorrent protocol.
 
 I am testing it on Ubuntu downloads. 
 
-Currently the binary decoder works, so the torrent file is succesfully 
-converted to a python data structure.
+Run this program by running client.py
 
 The binary decoder works for well-formed files, and has some assert 
 statements for sanity checks, but

@@ -39,7 +39,8 @@ class ClientPeerComm:
     # This function connects to the peer to get a reader and writer stream
     async def connect(self):
         try:
-            self.reader, self.writer = await asyncio.open_connection(self.ip, self.port)
+            self.reader, self.writer = await asyncio.open_connection(
+                    self.ip, self.port)
             return True
         except Exception:
             print("Failed to open a connection with peer", 
@@ -126,7 +127,7 @@ class ClientPeerComm:
                 return await self.receive()
             # Read the message and parse its ID
             await self.read_until(message_length)
-            message_id = messages.parse_id(self.remove_message(messages.ID_LEN))
+            message_id= messages.parse_id(self.remove_message(messages.ID_LEN))
 
             # get the message
             message_length -= 1
@@ -134,7 +135,7 @@ class ClientPeerComm:
 
             # set bitfield
             if message_id == messages.BITFIELD_ID:
-                self.bitfield = messages.parse_bitfield(message, message_length)
+                self.bitfield = messages.parse_bitfield(message,message_length)
             # set state to choked (no more requests can be made)
             elif message_id == messages.CHOKE_ID:
                 print("Peer", self.num, "is choked")
@@ -148,8 +149,8 @@ class ClientPeerComm:
             elif message_id == messages.PAYLOAD_ID:
                 index, offset, data = messages.parse_payload(message
                     , message_length)
-                self.is_downloading = not self.downloader.update(self.index,offset,
-                    data, self.num)
+                self.is_downloading = not self.downloader.update(self.index,
+                    offset, data, self.num)
             else:
                 print("Peer", self.num, """received unknown message after 
                     with id""", message_id)
@@ -215,7 +216,8 @@ class ClientPeerComm:
 
             # get the next piece index to request from the downloader
             if not self.is_downloading:
-                self.index, self.offset = await self.downloader.inform(self.num, self.bitfield)
+                self.index, self.offset = await self.downloader.inform(
+                    self.num, self.bitfield)
                 #if no piece is found by downloader, stop
                 if self.index is None or self.offset is None:
                     print("Peer", self.num, "could not find a piece")

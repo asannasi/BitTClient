@@ -8,6 +8,8 @@ from downloader import Downloader
 from peer import ClientPeerComm
 from tracker import ClientTrackerComm
 
+# This is the file that is meant to be run to run the program.
+
 MAX_PEER_CONNECTIONS = 30 # num of connections to open before updating peer list
 UPDATE_TIMER = 180 # timer for how long to wait until updating peer list
 GEN_TIMER = 10 # timer for how long to wait to generate next peer

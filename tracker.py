@@ -9,9 +9,10 @@ import math # to find out how many pieces there are
 from binary_decoder import binary_decoder # to decode binary file
 from downloader import BLOCK_SIZE
 
-PORT = 1025
-HASH_LENGTH = 20
+PORT = 1025 # the port number to connect from
+HASH_LENGTH = 20 # the length of hashes of the pieces for the torrent file
 
+# This class represents the communication between the client and the tracker
 class ClientTrackerComm:
     def __init__(self, torrent_file):
         self._parse_torrent_file(torrent_file)
@@ -32,7 +33,8 @@ class ClientTrackerComm:
         index = editable_data.index(info_string)
         # skip the 4:info part and just hash the dict, 
         # while making sure to not include the last 'e'
-        info=b''.join([editable_data[index+len(info_string):len(editable_data)-1]])
+        info=b''.join([editable_data
+            [index+len(info_string):len(editable_data)-1]])
         info_hash = sha1(info).digest()
         return info_hash
 
@@ -83,19 +85,19 @@ class ClientTrackerComm:
     # This function connects to the tracker with the url given in the
     # torrent file and sends given params. The response is returned or
     # an error is thrown.
-    # torrent is the decoded data, params is the params to be sent to the tracker,
-    # first is whether this is the first time connecting to the tracker, and
-    # the client is the aiohttp client session.
+    # torrent is the decoded data, params is the params to be sent 
+    # to the tracker, first is whether this is the first time connecting 
+    # to the tracker, and the client is the aiohttp client session.
     async def send(self, first) -> bytes:
         #start the client session
         async with aiohttp.ClientSession() as client:
             # connect to tracker and get response
             params = self.make_params()
-            # first represents if this is the first time connecting to the tracker
+
             if(first):
                 params['event'] = 'started'
 
-            url = str(self.torrent[b'announce'], 'utf-8') + '?' + urlencode(params)
+            url = str(self.torrent[b'announce'], 'utf-8')+'?'+urlencode(params)
             print("Connecting to", url)
             async with client.get(url) as response:
                 if response.status != 200:
@@ -104,8 +106,8 @@ class ClientTrackerComm:
                 data = await response.read()
 
                 if b'failure' in data:
-                    raise ConnectionError("""Requested download is not authorized 
-                        for use with this tracker""")
+                    raise ConnectionError("""Requested download is not 
+                        authorized for use with this tracker""")
 
                 return data
 
