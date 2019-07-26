@@ -1,181 +1,85 @@
 import os
-from binary_decoder import binary_decoder
 import asyncio
-from tracker import ask_for_peers, ClientTrackerInfo
-import messages
 import struct
+
+from binary_decoder import binary_decoder
+import messages
 from downloader import Downloader
+from peer import ClientPeerComm
+from tracker import ClientTrackerComm
 
-async def communicate(reader, writer, trk_info, initial_buffer, downloader, num):
-    buffer = initial_buffer
-    CHUNK_SIZE = 10*1024
-    isDownloading = True
-    # list of states
-    isChoked = True
-    isSending = False
-    isWaiting = False
-    current_piece = None
-    bitfield = None
-    while isDownloading:
-        try:
-            try:
-                data = await asyncio.wait_for(reader.read(CHUNK_SIZE), timeout=30)
-                #data = await reader.read(CHUNK_SIZE)
-            except asyncio.TimeoutError:
-                print(num, "Peer Timed Out")
-                if current_piece == None:
-                    downloader.notify_error(current_piece)
-                return
+MAX_PEER_CONNECTIONS = 30 # num of connections to open before updating peer list
+UPDATE_TIMER = 180 # timer for how long to wait until updating peer list
+GEN_TIMER = 10 # timer for how long to wait to generate next peer
 
+# This is a generator that creates peer objects using peer data
+async def generate_peers(trk, downloader):
+    # get more peers if needed
+    while downloader.is_downloading and len(downloader.untouched) > 0:
+        # get list of peers with IP addresses and ports
+        peer_list = await trk.get_peer_list()
+        print("Updated peer list")
 
-            buffer += data
-            
-            # parse header
-            HEADER_LENGTH = 4
-            if len(buffer) > HEADER_LENGTH:
-                # > is big-endian, I is signed integer
-                message_length = struct.unpack('>I', buffer[0:HEADER_LENGTH])[0]
+        # make sure connections is less than how many peers are available
+        num_peers = MAX_PEER_CONNECTIONS
+        if MAX_PEER_CONNECTIONS > len(peer_list):
+            num_peers = len(peer_list)
 
-                if message_length == 0:
-                    buffer = buffer[HEADER_LENGTH:]
-                # parse message id and message
-                elif len(buffer) >= message_length + HEADER_LENGTH:
-                    buffer = buffer[HEADER_LENGTH:]
-                    # > is big-endian, b is unsighed char
-                    message_id = struct.unpack('>b', buffer[0:1])[0]
-                    message = buffer[1:message_length+1]
-                    #print("message",message)
-                    buffer = buffer[message_length:]
+        # generate peers
+        for i in range(num_peers):
+            yield peer_list[i]
+            await asyncio.sleep(GEN_TIMER)
 
-                    message_length -= 1 # remove id
-                    #print("MI:", message_id)
+        await asyncio.sleep(UPDATE_TIMER) # wait to get ping tracker
 
-                    CHOKE_ID = 0
-                    UNCHOKE_ID = 1
-                    BITFIELD_ID = 5
-                    PAYLOAD_ID = 7
-                    if message_id == BITFIELD_ID:
-                        if(len(message) != message_length):
-                            print(len(message), message_length)
-                            if current_piece != None:
-                                downloader.notify_error(current_piece)
-                            return
-                        bitfield = await messages.parse_bitfield(message, 
-                            message_length)
-                        isSending = True
-                    elif message_id == CHOKE_ID:
-                        isChoked = True
-                        print(num, "is choked")
-                        if current_piece != None:
-                            downloader.notify_error(current_piece)
-                            return
-                    elif message_id == UNCHOKE_ID:
-                        isChoked = False
-                        print(num, "is unchoked")
-                    elif message_id == PAYLOAD_ID:
-                        index, offset, data = await messages.parse_payload(message, message_length)
-                        isComplete = downloader.update(current_piece, offset, data)
-                        if isComplete:
-                            current_piece = None
-
-                        isWaiting = False
-                        isSending = True
-
-                    if not isChoked and isSending:
-                        piece_index, offset = downloader.inform(bitfield)
-                        if piece_index == None:
-                            print("no piece index found", piece_index, downloader.is_downloaded())
-                            return
-                        if piece_index != current_piece:
-                            current_piece = piece_index
-                            print(num, "is downloading", current_piece)
-                        request = await messages.make_request(piece_index, offset)
-                        await messages.send_request(reader, writer, request)
-                        current_piece = piece_index
-                        isWaiting = True
-                        isSending = False
-                    
-        except Exception as e:
-            print(e)
-            if current_piece:
-                downloader.notify_error(current_piece)
-            return
-        isDownloading = not downloader.is_downloaded()
-    print("closing connection")
-
-async def get_peers(all_peers, downloader, torrent_file):
-    MAX_PEER_CONNECTIONS = len(all_peers)
-
-    while not downloader.is_downloaded():
-        for i in range(MAX_PEER_CONNECTIONS):
-            if not downloader.is_downloaded():
-                yield all_peers[i]
-            await asyncio.sleep(1)
-        await asyncio.sleep(60)
-        if not downloader.is_downloaded():
-            trk_info = await ask_for_peers(torrent_file)
-            all_peers = trk_info.peer_list
-            MAX_PEER_CONNECTIONS = len(all_peers)
-            print("updating peers")
-            if downloader.is_waiting():
-                print("fixing jam")
-                downloader.fix_jam()
-
-async def handle_peer(num, peer, trk_info, downloader):
-    assert(len(peer) == 2) # peer should have ip and port
-    try:
-        reader, writer = await asyncio.open_connection(peer[0], peer[1])
-    except Exception:
-        print("Connection failed with peer")
-        return
-    try:
-        reply, buffer = await asyncio.wait_for(messages.send_handshake(reader, 
-                    writer, trk_info), timeout=20)
-        print(num, reply)
-    except asyncio.TimeoutError:
-        print("Handshake with peer", peer, "timed out")
-        return
-    peer_info_hash = reply[2]
-    peer_id = reply[3]
-    try:
-        await asyncio.wait_for(messages.send_interested(
-            reader, writer,trk_info), timeout=20)
-    except asyncio.TimeoutError:
-        print("Handshake with peer", peer, "timed out")
-    await communicate(reader, writer, trk_info, buffer, downloader, num)
-    print("done communicating")
-
-
-async def main():
-    #getcwd() returns the current working directory where the program is running in
-    dir_path = os.getcwd() 
-    torrent_file = dir_path + "/"+"ubuntu-19.04-desktop-amd64.iso.torrent"
-    #torrent_file = dir_path + "/" + "test.torrent"
-
-    # get list of peers from tracker and torrent info
-    trk_info = await ask_for_peers(torrent_file)
-    assert(type(trk_info) == ClientTrackerInfo)
+# This function parses the torrent file, gets info from the tracker,
+# connects to peers, and downloads the requested torrent
+async def download_torrent(torrent_file):
+    # initialize the client tracker communication
+    trk = ClientTrackerComm(torrent_file)
 
     # initialize the central downloader
-    downloader = Downloader(trk_info)
+    downloader = Downloader(trk)
 
     # start the peer connections
+    # for each peer in the peer list, up to MAX_CONNECTIONS, 
+    # connect and download
+    #while downloader.is_downloading:
     tasks = []
-    async for peer in get_peers(trk_info.peer_list, downloader, torrent_file):
-        if not downloader.is_downloaded():
-            task_num = len(tasks)
-            print(task_num)
-            task = asyncio.get_event_loop().create_task(
-                handle_peer(task_num, peer, trk_info, downloader))
-            tasks.append(task)
-    result = await asyncio.gather(*tasks, return_exceptions=True)
-    downloader.write_to_disk()
-    print("main is over")
+    async for peer_info in generate_peers(trk, downloader):
+        if len(downloader.untouched) > 0:
+            # make peer
+            peer_num = len(tasks)
+            assert(len(peer_info) == 2) # peer should have ip and port
+            print("Starting Peer", peer_num)
+            peer = ClientPeerComm(peer_num, peer_info[0], peer_info[1], 
+                trk.peer_id, trk.info_hash, downloader)
 
-if __name__ == '__main__':       
+            # start peer connection
+            task = asyncio.get_event_loop().create_task(peer.download())
+            tasks.append(task)
+
+    # start async tasks
+    try:
+        result = await asyncio.gather(*tasks)#, return_exceptions= True)
+    except Exception as e:
+        print("Exception", e)
+
+    if not downloader.is_downloading:
+        print("Success")
+    else:
+        print("File was not downloaded")
+
+# For the main method, create the asynchronous event loop and start
+# downloading all torrent files given
+if __name__ == '__main__':
+    # create the event loop
     loop = asyncio.new_event_loop()
-    #asyncio.set_event_loop(loop)
-    #result = loop.run_until_complete(main())
-    task = loop.create_task(main())
+
+    # make tasks for each torrent file to download
+    torrent_file = os.getcwd() + "/"+"ubuntu-19.04-desktop-amd64.iso.torrent"
+    task = loop.create_task(download_torrent(torrent_file))
+
+    # start the event loop and download torrents
     result = loop.run_until_complete(task)
-    print("task complete")
+    print("Torrent downloading complete.")

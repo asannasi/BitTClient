@@ -1,7 +1,7 @@
 # BitTClient
 This is a client that uses the BitTorrent protocol.
 
-I am testing it on ubuntu downloads. 
+I am testing it on Ubuntu downloads. 
 
 Currently the binary decoder works, so the torrent file is succesfully 
 converted to a python data structure.
@@ -18,6 +18,16 @@ since not everything is explained in the tutorial.
 
 The client can successfully get the list of peers from the tracker and then
 parse this list to find the peers' IP addresses and port numbers.
+
+The client can now successfully connect to multiple peers and download 
+the ubuntu file. It may hang at the end because of a rogue peer, 
+but the program will print whether
+the file is done downloading and the file is written to disk. The program can 
+then be exited safely.
+
+Possible Extensions: add multi-file support. Test with other torrent files.
+
+The client does not support seeding.
 
 Citations:
 https://markuseliasson.se/article/bittorrent-in-python/
